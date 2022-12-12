@@ -1,0 +1,840 @@
+---
+title: "CS2"
+author: "Amy Adyanthaya"
+date: "2022-12-11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#install.packages("ggplot2", repos = "http://cran.us.r-project.org")
+library("ggplot2")
+#install.packages("GGally", repos = "http://cran.us.r-project.org")
+library("GGally")
+#install.packages("plotly", repos = "http://cran.us.r-project.org")
+library("plotly")
+#install.packages("flextable", repos = "http://cran.us.r-project.org")
+library("flextable")
+
+library(tidyverse)
+library(readxl)
+library(stats)
+library(viridis)
+library(viridisLite)
+library(e1071)
+library(caret)
+library(class)
+library(dplyr)
+library(rsconnect)
+```
+
+#Although I was able to obtain the data from AWS, the Aslett instance would not allow me to install packages therefore I moved the code to my desktop instance
+
+#I was unable to knit the file while pointing to AWS therefore I saved CSV files that I then called off my local directory
+
+# Loading Data From S3 URL Using RCurl
+```{r}
+#install.packages("RCurl")
+#library("RCurl") 
+#library(jsonlite)
+
+#cs2 <- read.table(textConnection(getURL(
+#  "https://smuddsproject2.s3-us-east-2.amazonaws.com/CaseStudy2-data.csv"
+#)), sep=",", header=TRUE)
+```
+
+# Loading Data From S3 URL Using RCurl
+```{r}
+#install.packages("RCurl")
+#library("RCurl") 
+#library(jsonlite)
+
+#cs2 <- read.table(textConnection(getURL(
+#  "https://smuddsproject2.s3-us-east-2.amazonaws.com/CaseStudy2-data.csv"
+#)), sep=",", header=TRUE)
+```
+
+# Loading Data From S3 Objects Using the aws.s3 package
+```{r}
+#library(tidyverse)
+#library(aws.s3)
+#library(readxl)
+
+#Sys.setenv("AWS_ACCESS_KEY_ID" = "AKIARVCEVL4C3YMB7QUW",
+#           "AWS_SECRET_ACCESS_KEY" = "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",
+#           "AWS_DEFAULT_REGION" = "us-east-2")
+
+# Using aws.s3
+#aws.s3::bucketlist()
+#aws.s3::get_bucket("smuddsproject2")
+
+#Read in Data
+#cs2cmpst = s3read_using(FUN = read.csv,
+#                        bucket = "smuddsproject2",
+#                        object = "CaseStudy2CompSet No Attrition.csv")
+
+#cs2cmpns = s3read_using(FUN = read_excel,
+#                         bucket = "smuddsproject2",
+#                         object = "CaseStudy2CompSet No Salary.xlsx")
+```
+
+#Save the data obtained from AWS to my desktop/cloud to process
+#By saving these I was then unable to call the files and then knit the RMD file for completion
+#My workaround in the eleventh hour!
+```{r}
+#Write to CSV files
+#write.csv(cs2, "cs2.csv", row.names = F)
+#write.csv(cs2cmpst, "cs2cmpst.csv", row.names = F)
+#write.csv(cs2cmpns, "cs2cmpns.csv", row.names = F)
+```
+
+#Reading the data off my local directory
+```{r}
+cs2 = read.csv("/Users/amyadyanthaya/Desktop/DS6306/cs2/cs2.csv", encoding = "UTF-8")
+cs2cmpns = read.csv("/Users/amyadyanthaya/Desktop/DS6306/cs2/cs2.csv", encoding = "UTF-8")
+cs2cmpst = read.csv("/Users/amyadyanthaya/Desktop/DS6306/cs2/cs2.csv", encoding = "UTF-8")
+```
+
+
+This section is to look at the individual variables to determine if they impact Attrition
+Those variables that showed no impact the plots were removed from this section
+```{r}
+#Look for missing observations
+anyNA(cs2)
+
+#CONTINIOUS VARIABLES
+# Age
+cs2 %>% 
+  ggplot(aes(x=Age, color=Attrition, fill=Attrition)) +
+  geom_histogram() + 
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Age by Attrition") + 
+  xlab("Age (Years)") + ylab("")
+
+cs2 %>% 
+ group_by(Attrition) %>%
+  summarize(medianAge = median(Age)) %>%
+  ggplot(aes(x=Attrition, y=medianAge, fill = Attrition)) +
+  geom_col() + 
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Median Age by Attrition") + 
+  xlab("Attrition")+ ylab("Median Age (Years)") + 
+  theme(legend.position = "none")
+
+# DistanceFromHome
+cs2 %>% 
+  ggplot(aes(x=DistanceFromHome, color=Attrition, fill=Attrition)) +
+  geom_histogram() + 
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Distance from Home by Attrition") + 
+  xlab("Distance From Home") + ylab("")
+
+cs2 %>% 
+  group_by(Attrition) %>%
+  summarize(medianDistanceFromHome = median(DistanceFromHome),count=n()) %>%
+  ggplot(aes(x=Attrition, y=medianDistanceFromHome, fill = Attrition)) +
+  geom_col() + 
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Median Distance From Home by Attrition") + 
+  xlab("Attrition")+ ylab("Median Distance from Home") + 
+  theme(legend.position = "none")
+
+# NumCompaniesWorked
+cs2 %>% 
+  ggplot(aes(x=NumCompaniesWorked, color=Attrition, fill=Attrition)) +
+  geom_histogram() + 
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Number of Companies Worked by Attrition") + 
+  xlab("Number of Companies Worked") + ylab("") + xlim(0,8)
+
+cs2 %>% 
+  group_by(Attrition) %>%
+  summarize(medianNumCompaniesWorked = median(NumCompaniesWorked),count=n()) %>%
+  ggplot(aes(x=Attrition, y=medianNumCompaniesWorked, fill=Attrition)) +
+  geom_col() + 
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Median Number of Companies Worked by Attrition") + 
+  xlab("Attrition")+ ylab("Median Number of Companies Worked") + 
+  theme(legend.position = "none")
+
+# YearsAtCompany
+cs2 %>% 
+  ggplot(aes(x=YearsAtCompany, color=Attrition, fill=Attrition)) +
+  geom_histogram() + 
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Years at Company by Attrition") + 
+  xlab("Years at Company") + ylab("")
+
+cs2 %>% 
+  group_by(Attrition) %>%
+  summarize(medianYearsAtCompany = median(YearsAtCompany),count=n()) %>%
+  ggplot(aes(x=Attrition, y=medianYearsAtCompany, fill=Attrition)) +
+  geom_col() + 
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Median Years at Company by Attrition") + 
+  xlab("Attrition")+ ylab("Median Years at Company") + 
+  theme(legend.position = "none")
+
+# YearsInCurrentRole
+cs2 %>% 
+  ggplot(aes(x=YearsInCurrentRole, color=Attrition, fill=Attrition)) +
+  geom_histogram() + 
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Years in Current Role by Attrition") + 
+  xlab("Years in Current Role") + ylab("")
+
+cs2 %>% 
+  group_by(Attrition) %>%
+  summarize(medianYearsInCurrentRole = median(YearsInCurrentRole),count=n()) %>%
+  ggplot(aes(x=Attrition, y=medianYearsInCurrentRole, fill=Attrition)) +
+  geom_col() + 
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Median Years in Current Role by Attrition") + 
+  xlab("Attrition")+ ylab("Median Years in Current Role") + 
+  theme(legend.position = "none")
+
+# YearsWithCurrManager
+cs2 %>% 
+  ggplot(aes(x=YearsWithCurrManager, color=Attrition, fill=Attrition)) +
+  geom_histogram() + 
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Years with Current Manager by Attrition") + 
+  xlab("Years with Current Manager") + ylab("")
+
+cs2 %>% 
+  group_by(Attrition) %>%
+  summarize(medianYearsWithCurrManager = median(YearsWithCurrManager),count=n()) %>%
+  ggplot(aes(x=Attrition, y=medianYearsWithCurrManager, fill=Attrition)) +
+  geom_col()  + 
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Median Years with Current Manager by Attrition") + 
+  xlab("Attrition")+ ylab("Median Years with Current Manager") + 
+  theme(legend.position = "none")
+
+#FACTORS
+# Education
+cs2$EducationF = as.factor(cs2$Education)
+#summary(cs2$EducationF)
+cs2 %>% 
+  ggplot(aes(x=EducationF, color=Attrition, fill=Attrition)) +
+  geom_bar() + 
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Education by Attrition") + 
+  xlab("Education") + ylab("") 
+
+# EnvironmentSatisifaction
+cs2$EnvironmentSatisfactionF = as.factor(cs2$EnvironmentSatisfaction)
+#summary(cs2$EnvironmentSatisfactionF)
+cs2 %>% 
+  ggplot(aes(x=EnvironmentSatisfactionF, color=Attrition, fill=Attrition)) +
+  geom_bar() +
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Environment Satisfaction by Attrition") + 
+  xlab("Environment Satisfaction") + ylab("") 
+
+# JobInvolvement
+cs2$JobInvolvementF = as.factor(cs2$JobInvolvement)
+#summary(cs2$JobInvolvementF)
+cs2 %>% 
+  ggplot(aes(x=JobInvolvementF, color=Attrition, fill=Attrition)) +
+  geom_bar() +
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Job Involvement by Attrition") + 
+  xlab("Job Involvement") + ylab("") 
+
+# JobLevel
+cs2$JobLevelF = as.factor(cs2$JobLevel)
+cs2 %>% 
+  ggplot(aes(x=JobLevelF, color=Attrition, fill=Attrition)) +
+  geom_bar() +
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Job Level by Attrition") + 
+  xlab("Job Level") + ylab("") 
+
+# JobSatification  
+cs2$JobSatisfactionF = as.factor(cs2$JobSatisfaction)
+cs2 %>% 
+  ggplot(aes(x=JobSatisfactionF, color=Attrition, fill=Attrition)) +
+  geom_bar() +
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Job Satisfaction by Attrition") + 
+  xlab("Job Satisfaction") + ylab("") 
+
+# PerformanceRating  
+cs2$PerformanceRatingF = as.factor(cs2$PerformanceRating)
+cs2 %>% 
+  ggplot(aes(x=PerformanceRatingF, color=Attrition, fill=Attrition)) +
+  geom_bar() +
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Performance Rating by Attrition") + 
+  xlab("Performance Rating") + ylab("") 
+
+# RelationshipSatification
+cs2$RelationshipSatisfactionF = as.factor(cs2$RelationshipSatisfaction)
+#summary(cs2$RelationshipSatisfactionF)
+cs2 %>% 
+  ggplot(aes(x=RelationshipSatisfactionF, color=Attrition, fill=Attrition)) +
+  geom_bar() +
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Relationship Satisfaction by Attrition") + 
+  xlab("Relationship Satisfaction") + ylab("") 
+
+# StockOptionLevel
+cs2$StockOptionLevelF = as.factor(cs2$StockOptionLevel)
+cs2 %>% 
+  ggplot(aes(x=StockOptionLevelF, color=Attrition, fill=Attrition)) +
+  geom_bar() +
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Stock Option Level by Attrition") + 
+  xlab("Stock Option Level") + ylab("") 
+
+# WorkLifeBalance
+cs2$WorkLifeBalanceF = as.factor(cs2$WorkLifeBalance)
+cs2 %>% 
+  ggplot(aes(x=WorkLifeBalanceF, color=Attrition, fill=Attrition)) +
+  geom_bar() +
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Work Life Balance by Attrition") + 
+  xlab("Work Life Balance") + ylab("") 
+
+#CATEGORICAL
+
+# BusinessTravel
+cs2 %>% 
+  proc_freq("BusinessTravel", "Attrition",
+              include.row_percent = FALSE,
+            include.column_percent = FALSE)
+cs2 %>% 
+  ggplot(aes(x=BusinessTravel, color=Attrition, fill=Attrition)) +
+  geom_bar() +
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Business Travel by Attrition") + 
+  xlab("Business Travel") + ylab("")
+
+# Department
+cs2 %>% 
+  proc_freq("Department", "Attrition",
+              include.row_percent = FALSE,
+            include.column_percent = FALSE)
+cs2 %>% 
+  ggplot(aes(x=Department, color=Attrition, fill=Attrition)) +
+  geom_bar() +
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution Department by Attrition") + 
+  xlab("Department") + ylab("")
+
+# EducationField
+cs2 %>% 
+  proc_freq("EducationField", "Attrition",
+              include.row_percent = FALSE,
+            include.column_percent = FALSE)
+cs2 %>% 
+  ggplot(aes(x=EducationField, color=Attrition, fill=Attrition)) +
+  geom_bar() +
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution Education Field by Attrition") + 
+  xlab("Education Field") + ylab("")
+  
+# Gender
+cs2 %>% 
+  proc_freq("Gender", "Attrition",
+              include.row_percent = FALSE,
+            include.column_percent = FALSE)
+cs2 %>% 
+  ggplot(aes(x=Gender, color=Attrition, fill=Attrition)) +
+  geom_bar() +
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Gender by Attrition") + 
+  xlab("Gender") + ylab("")
+
+# MaritalStatus
+cs2 %>% 
+  proc_freq("MaritalStatus", "Attrition",
+              include.row_percent = FALSE,
+            include.column_percent = FALSE)
+cs2 %>% 
+  ggplot(aes(x=MaritalStatus, color=Attrition, fill=Attrition)) +
+  geom_bar() +
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Marital Status by Attrition") + 
+  xlab("Marital Status") + ylab("")
+  
+# Overtime
+cs2 %>% 
+  proc_freq("OverTime", "Attrition",
+              include.row_percent = FALSE,
+            include.column_percent = FALSE)
+cs2 %>% 
+  ggplot(aes(x=OverTime, color=Attrition, fill=Attrition)) +
+  geom_bar() +
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Distribution of Overtime by Attrition") + 
+  xlab("Marital Status") + ylab("")
+```
+
+
+
+After looking at the relationship between Attrition and individual variables it was determined that
+TotalWorkingYears, MonthlyIncome and JobRole were the top three factors that contribute to Attrition
+```{r}
+cs2 %>% 
+  select(TotalWorkingYears, MonthlyIncome, JobRole) %>%
+  ggpairs(mapping = aes(color = cs2$Attrition)) + 
+  scale_fill_viridis(discrete = TRUE) +
+  scale_color_viridis(discrete = TRUE) 
+```
+
+#Impact of TotalWorkingYears on Attrition
+```{r}
+cs2 %>% 
+  group_by(Attrition) %>%
+  summarize(meanTWH = mean(TotalWorkingYears),
+            sdTWH = sd(TotalWorkingYears),
+            medianTWH = median(TotalWorkingYears),
+            rangeTWH = max(TotalWorkingYears)-min(TotalWorkingYears),
+            IQRTWH = IQR(TotalWorkingYears),
+            countTWH = n())
+
+cs2 %>% 
+  ggplot(aes(x=TotalWorkingYears, fill=Attrition)) + 
+  geom_histogram() + scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Impact of Total Working Years on Attrition") + 
+  xlab("Total Working Years") + 
+  ylab("")
+
+cs2 %>% 
+  ggplot(aes(y=TotalWorkingYears, color=Attrition)) + 
+  geom_boxplot() +
+  scale_color_viridis(discrete = TRUE) +
+  ggtitle("Comparison of Total Working Years and Attrition") + 
+  ylab("Total Working Years") 
+
+#Create factor cuts
+cs2$TWYcut = cut(cs2$TotalWorkingYears, breaks = c(0,5,10,15,20,25,30,35,100), labels = c("< 5","5-10","10-15","15-20","20-25","25-30","30-35",">35"), right=FALSE)
+
+freqTWY <- cs2 %>% 
+  proc_freq("TWYcut", "Attrition",
+            include.row_percent = FALSE,
+            include.column_percent = FALSE,
+            include.table_percent = FALSE,
+            include.column_total = FALSE,
+            include.row_total = FALSE,
+            )
+ 
+freqTWY$body$dataset$PctAtt <- (freqTWY$body$dataset$Yes/(freqTWY$body$dataset$Yes + freqTWY$body$dataset$No))*100
+freqTWY$body$dataset
+
+cs2 %>% 
+  ggplot(aes(x=TWYcut, color=Attrition, fill=Attrition)) +
+  geom_bar() +  
+  scale_color_viridis(discrete = TRUE) +
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Impact of Attrition per Total Working Years") +
+  xlab("Total Working Years") + ylab("")
+
+
+#Not a normal distribution so use KW test
+# H_0: The poulation distributions contain similar medians for Attrition
+# H_A: At least one population distribution differs for attrition
+kruskal.test(TotalWorkingYears~Attrition, data=cs2)
+```
+Reject Ho, there is overwhelming evidence that suggests Total Working Years has an impact on the outcome of Attrition.  33.6% of attritions occur less then five total working years with nearly 50% of attritions occuring within 10 years of total working.
+
+#Impact of MonthlyIncome on Attrition
+```{r}
+cs2 %>% 
+  group_by(Attrition) %>%
+  summarize(meanMI = mean(MonthlyIncome),
+            medianMI = median(MonthlyIncome),
+            rangeMI = max(MonthlyIncome)-min(MonthlyIncome),
+            IQRMI = IQR(MonthlyIncome),
+            IQRMI = IQR(MonthlyIncome),
+            countMI = n())
+
+cs2 %>% 
+  ggplot(aes(x=MonthlyIncome, fill=Attrition)) + geom_histogram() + 
+  scale_fill_viridis(discrete = TRUE) +
+  scale_color_viridis(discrete = TRUE) +
+  ggtitle("Impact of Monthly Income on Attrition") + 
+  xlab("Monthly Income") + ylab("")
+
+cs2 %>% 
+  ggplot(aes(x=MonthlyIncome, color=Attrition)) + geom_boxplot() + scale_color_viridis(discrete = TRUE) +
+  ggtitle("Impact of Monthly Income and Attrition") + xlab("Monthly Income") + ylab("")
+
+#Not a normal distribution so use KW test
+# H_0: The poulation distributions contain similar medians for Attrition
+# H_A: At least one population distribution differs for attrition
+kruskal.test(MonthlyIncome~Attrition, data=cs2)
+```
+Reject Ho, there is overwhelming evidence that suggests MonthlyIncome has an impact on the outcome of Attrition.  It appears that more attrition occurs with a lower monthly income.  The median monthly income is 24% lower for employee attrtion, compared to non-attrition.
+
+#Impact of Job Involvement on Attrition
+```{r}
+cs2 %>% 
+  ggplot(aes(x=JobInvolvementF, color=Attrition, fill=Attrition)) +
+  geom_bar() + scale_fill_viridis(discrete = TRUE) + 
+  ggtitle("Distribution of Job Involvement and Attrition") + 
+  xlab("Job Involvement") + ylab("")
+
+freqJI <- cs2 %>% 
+  proc_freq("JobInvolvementF", "Attrition",
+            include.row_percent = FALSE,
+            include.column_percent = FALSE,
+            include.table_percent = FALSE,
+            include.column_total = FALSE,
+            include.row_total = FALSE,
+            )
+
+freqJI$body$dataset$PctAtt <- (freqJI$body$dataset$Yes/(freqJI$body$dataset$Yes + freqJI$body$dataset$No))*100
+freqJI$body$dataset
+
+freqJIc <- cbind(freqJI$body$dataset$Yes, freqJI$body$dataset$No)
+
+#Ho: Attrition is independent of Job Involvement
+#Ha: Attriton is not independent of Job Involvement
+chisq.test(freqJIc)
+```
+Reject Ho, there is overwhelming evidence that suggests Job Involvement has an impact on the outcome of Attrition.  The data does not provide text explaining each job involvement level however that it may be assumed that desirable job involvement increase with each level.  Almost 50% of the attrition occurs at the lowest level of job involvement (1), which includes the least number of employees.
+
+
+
+
+#Impact of Job Role on Attrition
+```{r}
+cs2 %>% 
+  ggplot(aes(x=JobRole, color=Attrition, fill=Attrition)) +
+  geom_bar() + scale_fill_viridis(discrete = TRUE) + 
+  scale_x_discrete(guide = guide_axis(angle = 60)) +
+  ggtitle("Distribution of Job Role and Attrition") + 
+  xlab("Job Role") + ylab("")
+
+freqJR <- cs2 %>% 
+  proc_freq("JobRole", "Attrition",
+            include.row_percent = FALSE,
+            include.column_percent = FALSE,
+            include.table_percent = FALSE,
+            include.column_total = FALSE,
+            include.row_total = FALSE,
+            )
+
+freqJR$body$dataset$PctAtt <- (freqJR$body$dataset$Yes/(freqJR$body$dataset$Yes + freqJR$body$dataset$No))*100
+freqJR$body$dataset
+
+freqJRc <- cbind(freqJR$body$dataset$Yes, freqJR$body$dataset$No)
+
+#Ho: Attrition is independent of Job Role
+#Ha: Attriton is not independent of Job Role
+chisq.test(freqJRc)
+```
+Reject Ho, there is overwhelming evidence that suggests Job Role has an impact on the outcome of Attrition.  Almost half (45.3%) of the attrition occurs for the Sales Representatives.  
+
+
+```{r}
+#Fit a model with the variables to identify those that may assist with the prediciting of the model
+#Kitchen Sink
+cs2$AttritionT <-ifelse(cs2$Attrition=="Yes",1,0)
+fitR = lm(AttritionT ~ MonthlyIncome+TotalWorkingYears+JobRole+JobSatisfactionF+WorkLifeBalanceF+PercentSalaryHike+YearsSinceLastPromotion+EducationF+EducationField+EmployeeNumber+EnvironmentSatisfaction+Gender+PerformanceRatingF+Department+DistanceFromHome+Age+BusinessTravel+JobInvolvementF+JobLevelF+MaritalStatus+NumCompaniesWorked+OverTime+RelationshipSatisfactionF+StockOptionLevelF+TrainingTimesLastYear+YearsAtCompany+YearsInCurrentRole+YearsSinceLastPromotion+YearsWithCurrManager + HourlyRate + MonthlyRate + PercentSalaryHike + DailyRate, data=cs2)
+summary(fitR)
+```
+
+Naive Bayes 
+Find the average accuracy of 100 train/test splits
+Model determined from LM of all dataset variables
+Selection from those that showed signifiance from the model
+```{r}
+# Use for the train/test & preditcions
+NB = cs2 %>% select(Attrition,TotalWorkingYears,MonthlyIncome,YearsSinceLastPromotion, PerformanceRatingF, Age, OverTime, RelationshipSatisfactionF, JobInvolvementF , BusinessTravel)
+
+#testNB2 will be used for the prediction of the attritions
+testNB2 = cs2cmpst %>% select(ID,TotalWorkingYears,MonthlyIncome,YearsSinceLastPromotion, PerformanceRating, Age, OverTime, RelationshipSatisfaction, JobInvolvement, BusinessTravel)
+
+testNB2$PerformanceRatingF = as.factor(testNB2$PerformanceRating)
+testNB2$RelationshipSatisfactionF = as.factor(testNB2$RelationshipSatisfaction)
+testNB2$JobInvolvementF = as.factor(testNB2$JobInvolvement)
+ 
+AccHolder = numeric(100)
+SensHolder = numeric(100)
+SpecHolder = numeric(100)
+ 
+for (seed in 1:100)
+{
+set.seed(seed)
+trainIndicies = sample(1:dim(NB)[1],round(.75 * dim(NB)[1]))
+trainNB = NB[trainIndicies,]
+testNB = NB[-trainIndicies,]
+ 
+modelNB = naiveBayes(trainNB[,c("TotalWorkingYears","MonthlyIncome","YearsSinceLastPromotion","PerformanceRatingF","Age","OverTime","RelationshipSatisfactionF","JobInvolvementF","BusinessTravel")], trainNB$Attrition)
+
+PredNB = table(predict(modelNB,testNB), testNB$Attrition)
+
+CMNB = confusionMatrix(table(testNB$Attrition,predict(modelNB, testNB[,c("TotalWorkingYears","MonthlyIncome","YearsSinceLastPromotion","PerformanceRatingF","Age","OverTime","RelationshipSatisfactionF","JobInvolvementF","BusinessTravel")])))     
+ 
+AccHolder[seed] = CMNB$overall[1]
+SensHolder[seed] = CMNB$byClass[1]
+SpecHolder[seed] = CMNB$byClass[2]
+}
+
+#Plot of the 100 mean Accuracies
+MACC <- data.frame(AccHolder)
+MACC %>% ggplot(aes(x=AccHolder))+
+  geom_histogram(fill="blue",color="black",bins=40) +
+  ggtitle("Mean Accuracy =",round(mean(AccHolder), digits = 4)) + 
+  xlab("Model Accuracies") +
+  ylab("Frequency")
+
+#Plot of the 100 mean Sensativities
+MSEN <- data.frame(SensHolder)
+MSEN %>% ggplot(aes(x=SensHolder))+
+  geom_histogram(fill="red",color="black", bins=40) +
+  ggtitle("Mean Sensitivity =",round(mean(SensHolder), digits = 4)) + 
+  xlab("Model Sensitivities") +
+  ylab("Frequency")
+
+#Plot of the 100 mean Specificities
+MSPC <- data.frame(SpecHolder)
+MSPC %>% ggplot(aes(x=SpecHolder))+
+  geom_histogram(fill="green",color="black",bins=40) +
+  ggtitle("Mean Specificity =",round(mean(SpecHolder), digits = 4)) + 
+  xlab("Model Specificities") +
+  ylab("Frequency")
+
+#Model to use for the creatio  of the predicted attritions 
+modelNB2 = naiveBayes(NB[,c("TotalWorkingYears","MonthlyIncome","YearsSinceLastPromotion","PerformanceRatingF","Age","OverTime","RelationshipSatisfactionF","JobInvolvementF","BusinessTravel")], NB$Attrition)
+
+#Create the Attrition Prediction CSV file
+Case2PredictionsAdyanthayaAttritions <- data.frame(testNB2 %>% select(ID),predict(modelNB,testNB2))
+Case2PredictionsAdyanthayaAttritions <- setNames(Case2PredictionsAdyanthayaAttritions, c("ID","Attrition"))
+#write to csv file
+write.csv(Case2PredictionsAdyanthayaAttritions, "Case2PredictionsAdyanthayaAttritions.csv", row.names = F)
+
+#Accuracy
+mean(AccHolder)
+sd(AccHolder)/sqrt(100)
+#Sensitivity
+mean(SensHolder)
+sd(SensHolder)/sqrt(100)
+#Specificity
+mean(SpecHolder)
+sd(SpecHolder)/sqrt(100)
+```
+The mean accuracy of the model was calculated to be 85.4%.  This reflects the number of correctly classified observations.
+The mean sensitivity of the model was calculated to be 87,5%.  This reflects the number of correctly identified attritions that are truly employee attritions.
+The mean specificity of the model was calculated to be 61.7%.  This reflects the number of correctly identified non-attritions that are truly employee non-attritions.
+
+
+knn
+Find the average accuracy of 100 train/test splits
+Model determined from LM of all dataset variables
+Selection from those that showed signifiance from the model
+```{r}
+cs2knn <- cs2 %>% select(Attrition, Age, BusinessTravel, MonthlyIncome, OverTime, TWYcut, JobInvolvement, PerformanceRating, RelationshipSatisfaction, WorkLifeBalance, YearsSinceLastPromotion, NumCompaniesWorked, StockOptionLevel, TrainingTimesLastYear, DistanceFromHome, EducationField)
+cs2knn$Attrition <-  ifelse(cs2knn$Attrition=="Yes",1,0)
+cs2knn$OverTime <-  ifelse(cs2knn$OverTime=="Yes",1,0)
+cs2knn$BusinessTravel <- ifelse(cs2knn$BusinessTravel=="Non-Travel",1,
+                                ifelse(cs2knn$BusinessTravel=="Travel_Rarely",2,3))
+#cs2knn$MaritalStatus <- ifelse(cs2knn$MaritalStatus=="Single",1,
+#                               ifelse(cs2knn$MaritalStatus=="Married",2,3))
+cs2knn$EducationField <- ifelse(cs2knn$EducationField=="Life Sciences",1,
+                                ifelse(cs2knn$EducationField=="Marketing",2,
+                                       ifelse(cs2knn$EducationField=="Medical",3,
+                                              ifelse(cs2knn$EducationField=="Technical Degree",4,5))))
+
+cs2knn$Age = as.numeric(cs2knn$Age)
+cs2knn$MonthlyIncome = as.numeric(cs2knn$MonthlyIncome)
+#cs2knn$TotalWorkingYears = as.numeric(cs2knn$TotalWorkingYears)
+cs2knn$JobInvolvement = as.numeric(cs2knn$JobInvolvement)
+cs2knn$PerformanceRating = as.numeric(cs2knn$PerformanceRating)
+cs2knn$RelationshipSatisfaction = as.numeric(cs2knn$RelationshipSatisfaction)
+cs2knn$WorkLifeBalance = as.numeric(cs2knn$WorkLifeBalance)
+cs2knn$YearsSinceLastPromotion = as.numeric(cs2knn$YearsSinceLastPromotion)
+cs2knn$NumCompaniesWorked = as.numeric(cs2knn$NumCompaniesWorked)
+cs2knn$StockOptionLevel = as.numeric(cs2knn$StockOptionLevel)
+#cs2knn$YearsWithCurrManager = as.numeric(cs2knn$YearsWithCurrManager)
+cs2knn$TrainingTimesLastYear = as.numeric(cs2knn$TrainingTimesLastYear)
+cs2knn$DistanceFromHome = as.numeric(cs2knn$DistanceFromHome)
+cs2knn$TWYcut = as.numeric(cs2knn$TWYcut)
+
+
+
+set.seed(1)
+iterations = 100
+numks = 5
+splitPerc = .75
+
+masterAcc = matrix(nrow = iterations, ncol = numks)
+masterSens = matrix(nrow = iterations, ncol = numks)
+masterSpec = matrix(nrow = iterations, ncol = numks)
+
+for(j in 1:iterations)
+{
+  trainIndicies = sample(1:dim(cs2knn)[1],round(splitPerc * dim(cs2knn)[1]))
+  trainKnn = cs2knn[trainIndicies,]
+  testKnn = cs2knn[-trainIndicies,]
+  for(i in 1:numks)
+  {
+    modelKnn = knn(trainKnn[,c("Attrition", "Age", "BusinessTravel", "MonthlyIncome",
+                               "OverTime", "TWYcut", "JobInvolvement",
+                               "PerformanceRating", "RelationshipSatisfaction","WorkLifeBalance", "YearsSinceLastPromotion","NumCompaniesWorked","StockOptionLevel","TrainingTimesLastYear","DistanceFromHome","EducationField")],
+                   testKnn[,c("Attrition", "Age", "BusinessTravel", "MonthlyIncome", "OverTime",
+                              "TWYcut", "JobInvolvement", "PerformanceRating",
+                              "RelationshipSatisfaction","WorkLifeBalance","YearsSinceLastPromotion","NumCompaniesWorked","StockOptionLevel","TrainingTimesLastYear","DistanceFromHome","EducationField")],
+                   trainKnn$Attrition, prob = TRUE, k=i)
+    table(modelKnn,testKnn$Attrition)
+    CMKnn = confusionMatrix(table(modelKnn,testKnn$Attrition))
+    masterAcc[j,i] = CMKnn$overall[1]
+    masterSens[j,i] = CMKnn$byClass[1]
+    masterSpec[j,i] = CMKnn$byClass[2]
+  }
+}
+
+#Accuracy
+MeanAcc = colMeans(masterAcc)
+which.max(MeanAcc)
+max(MeanAcc)
+#Sensitivity
+MeanSens = colMeans(masterSens)
+which.max(MeanSens)
+max(MeanSens)
+#Specificity
+MeanSpec = colMeans(masterSpec)
+which.max(MeanSpec)
+max(MeanSpec)
+```
+Unfortunately I was not able to find an ideal model that would improve the specificity.  
+
+#JOB ROLE
+```{r}
+#Overview of Age, Education, Monthly Income and Business Travel on Job Role
+cs2 %>% 
+  select(Age,EducationF, MonthlyIncome, BusinessTravel) %>%
+  ggpairs(mapping = aes(color = cs2$JobRole))
+
+```
+
+
+#Impact of Age on Job Role
+```{r}
+# Age
+cs2 %>%
+  ggplot(aes(y=Age, color=JobRole)) +
+  geom_boxplot() +
+  scale_color_viridis(discrete = TRUE) + 
+  ggtitle("Age & Job Role") + 
+  xlab("") + ylab("Age (Years)") 
+
+#Not a normal distribution so use KW test
+# H_0: The poulation distributions contain similar medians for JobRole
+# H_A: At least one population distribution differs for JobRole
+cs2AJR <- kruskal.test(Age~JobRole, data=cs2)
+cs2AJR
+```
+Reject Ho, there is overwhelming evidence that suggests Age has an impact on Job Role.  It appears that leadership roles (e.g. directors & executives) tends to have employees that are older in age whereas entry level positions have younger employees.
+
+
+#Impact of Total Working Years on Job Role
+```{r}
+cs2 %>%
+  ggplot(aes(y=TotalWorkingYears, color=JobRole)) +
+  geom_boxplot() +
+  scale_color_viridis(discrete = TRUE) + 
+  ggtitle("Total Working Yeara & Job Role") + 
+  xlab("") + ylab("Total Working Years") 
+
+#Not a normal distribution so use KW test
+# H_0: The poulation distributions contain similar medians for JobRole
+# H_A: At least one population distribution differs for JobRole
+cs2TWJR <- kruskal.test(TotalWorkingYears~JobRole, data=cs2)
+cs2TWJR
+```
+Reject Ho, there is overwhelming evidence that suggests TotalWorkingYears has an impact on Job Role.  It appears that leadership roles tends to have employees that have higher total working years whereas entry level positions have lowere total working years.
+
+
+#Age & Total Working Years impact on Job Role
+```{r}
+cs2 %>%
+  ggplot(aes(x=Age, y=TotalWorkingYears, color=JobRole)) +
+  geom_point() 
+
+cs2 %>%
+  ggplot(aes(x=Age, y=TotalWorkingYears, color=JobRole)) +
+  geom_point() +
+  geom_smooth(method="lm")
+```
+There is a direct relationship on between Age & Total Working Hours on Job Role.  The job roles were smoothed to the data using fit linear models.  As seen in the individual models, positions of leadership tend to be of high ages and total working years.
+
+
+#Education impact on Job Role
+```{r}
+cs2 %>% 
+  ggplot(aes(x=EducationF, color=JobRole, fill=JobRole)) +
+  geom_bar() +
+  facet_grid(rows = vars(JobRole)) + 
+  scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Education & Job Role") + 
+  xlab("Education") + ylab("") +
+  theme(
+  strip.background = element_blank(),
+  strip.text.y = element_blank()) + 
+  scale_x_discrete(guide = guide_axis(angle = 45)) +
+  coord_flip()
+
+freqE <- cs2 %>% 
+  proc_freq("JobRole", "EducationF",
+            include.row_percent = FALSE,
+            include.column_percent = FALSE,
+            include.table_percent = FALSE,
+            include.column_total = FALSE,
+            include.row_total = FALSE,
+            )
+
+freqE <- cbind(freqE$body$dataset$`1`, freqE$body$dataset$`2`, freqE$body$dataset$`3`, freqE$body$dataset$`4`, freqE$body$dataset$`5`)
+freqE
+
+#Ho: Attrition is independent of Job Role
+#Ha: Attriton is not independent of Job Role
+cs2EJR <- chisq.test(freqE)
+cs2EJR
+```
+Reject Ho, there is strong evidence that suggests Education has an impact on Job Role. Not knowing exactly what each of the education categories represent, it may be assumed that the level of education increases with code value.  Job roles such as Sales Executative or Research Scientist would be expected to have a higher education level as compared to a Healthcare Representative or Human Resources.
+
+#MONTHLY INCOME
+```{r}
+#Fit all of the variables to identify those that contribute to the prediction of monthly income
+#fitR = lm(MonthlyIncome~Attrition+TotalWorkingYears+JobRole+JobSatisfactionF+WorkLifeBalanceF+PercentSalaryHike+YearsSinceLastPromotion+EducationF+EducationField+EmployeeNumber+EnvironmentSatisfaction+Gender+PerformanceRatingF+Department+DistanceFromHome+Age+BusinessTravel+JobInvolvementF+JobLevelF+MaritalStatus+NumCompaniesWorked+OverTime+RelationshipSatisfactionF+StockOptionLevelF+TrainingTimesLastYear+YearsAtCompany+YearsInCurrentRole+YearsSinceLastPromotion+YearsWithCurrManager + HourlyRate + MonthlyRate + PercentSalaryHike + DailyRate, data=cs2)
+#summary(fitR)
+
+
+set.seed(5)
+trainIndicies = sample(1:dim(cs2)[1],round(.75 * dim(cs2cmpns)[1]),replace = FALSE)
+trainR = cs2[trainIndicies,]
+testR = cs2[-trainIndicies,]
+
+#Determine the optimal model of variables to fit the monthly income 
+#Leave one out cross validation
+ModelRfit = lm(MonthlyIncome ~ TotalWorkingYears+JobRole+JobLevel+BusinessTravel+EducationF+StockOptionLevelF+Age+Gender+OverTime+NumCompaniesWorked, data=trainR, trControl = trainControl((method = "LOOCV")))
+summary(ModelRfit)
+confint(ModelRfit)
+
+#Calculate the RSME of the model 
+RSME = sqrt(mean(ModelRfit$residuals^2))
+RSME
+
+#Find the MSPE
+ModelRPreds = predict(ModelRfit, newdata = testR)
+as.data.frame(ModelRPreds)
+
+MSPE = data.frame(Observed = testR$MonthlyIncome, Predicted = ModelRPreds)
+MSPE$Residual = MSPE$Observed - MSPE$Predicted
+MSPE$SquaredResidual = MSPE$Residual^2
+mean(MSPE$SquaredResidual)
+
+#Create the Monthly Salary Predicted CSV File
+cs2cmpns$EducationF = as.factor(cs2cmpns$Education)
+cs2cmpns$StockOptionLevelF = as.factor(cs2cmpns$StockOptionLevel)
+
+Case2PredictionsAdyanthayaSalary <- data.frame(cs2cmpns %>% select(ID),predict(ModelRfit, newdata=cs2cmpns))
+Case2PredictionsAdyanthayaSalary <- setNames(Case2PredictionsAdyanthayaSalary, c("ID","MonthlyIncome"))
+#write to csv file
+write.csv(Case2PredictionsAdyanthayaSalary, "Case2PredictionsAdyanthayaSalary.csv", row.names = F)
+```
